@@ -1,47 +1,4 @@
-# Locator Break Dataset (LoB)
-
-## This is Leon Adamietz's bachelor's source code!
- 
-## Goal
-
-This repository builds a dataset of commits from multiple repositories that modify **web GUI test locators** due to changes in the web app version that break the test. Our starting point is the repositories contained in the E2EGit dataset that contain tests using Cypress, Playwright, Puppeteer.
-
-### Plan
-
-We will start with on **test maintenance** activities, beginning with actual test files. From there, we trace backward from the modifications made to these files. The types of modifications we consider include:
-
-* Renaming test files.
-* Deleting test files.
-* Adding new test cases.
-* Deleting test cases.
-* **Editing existing test cases**.
-
-Among these, we are specifically interested in the **editing** of existing test cases (although it could be useful to store the other types of changes for future analysis).
-
-A test case is composed of multiple **statements** (i.e., actions). Edits to a test case can involve:
-
-* Adding statements.
-* Deleting statements.
-* **Modifying existing statements**.
-
-Through this approach we collected 10.872 locator changes. We dont know if they are breaks yet because we did not run the tests to ensure that they actually break a test.
-
-**Therefore, creating an automatic way to reproduce the (possible) break is the most important thing about this dataset.** It is important to take into account that some commits may have multiple goals. Some could change the test files and source code files. We still wanna to evaluate these by crafting a script that separates the changes, with the interesting and non-interesting ones.
-
-### Dataset Requirements
-
-For each locator change we store this information:
-
-* Repository
-* Commit and previous commit
-* test_file_path
-* old and new locator
-* line number
-* GUI testing framework
-
-For each Locator break we store
-* ID of the locator change
-* Files needed to reproduce the locator break
+# Reproducible Locator Break Dataset (RLBD)
 
 ### Usage
 
