@@ -1,4 +1,4 @@
-# Reproducible Locator Break Dataset (RLBD)
+# A Dataset of Reproducible Web Locator Breakages
 
 ### Usage
 
@@ -24,7 +24,7 @@ The [Config](config.py) contains all settings regarding the repo
 The file [create_dataset.py](create_dataset.py) is used to create the dataset of locator changes
 
 #### Create Reproduction
-The file [create_reproductible_dataset.py](create_reproudcible_dataset.py) is used to check for reproducible locator breaks.
+The file [create_reproducible_dataset.py](create_reproudcible_dataset.py) is used to check for reproducible locator breaks.
 Under REPRODUCTION_PATH create a folder called repos, containing another folder named after the repository you want to reproduce.
 In this folder place all files to reproduce locator breaks. This should atleast include a Makefile with the following targets:
 * start: should start the application
