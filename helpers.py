@@ -6,12 +6,13 @@ from git import Repo
 from pathlib import Path
 from unidiff import PatchSet
 
+from analyze_locator_changes import strip_assertions
 from repository_model import CommitPair, TestFile, RepositoryTest, Commit, LocatorBreak
-from test_case_detection_helper import get_potential_locator_from_line
 
 repos_path = Path(__file__).parent / "repos"
 
-#function
+
+# function
 def get_repo_with_tests(repo_name):
     if not os.path.exists("repos"):
         os.makedirs("repos")
@@ -23,7 +24,8 @@ def get_repo_with_tests(repo_name):
 
     return repo
 
-#helper
+
+# helper
 def detect_language_from_extension(filename):
     """
     Return 'java', 'js', 'ts', or 'py' based on file extension.
@@ -39,7 +41,8 @@ def detect_language_from_extension(filename):
         return "py"
     return None
 
-#helper
+
+# helper
 def count_tests_in_text(text, language):
     """
     Count individual test cases by language:
@@ -62,7 +65,8 @@ def count_tests_in_text(text, language):
 
     return 0
 
-#helper
+
+# helper
 def detect_framework_from_text(text, language):
     """
     Detect a web-testing framework usage inside text.
@@ -99,7 +103,7 @@ def detect_framework_from_text(text, language):
                 re.search(r'import\s+.*[\'"]puppeteer[\'"]', text) or \
                 re.search(r'\bpuppeteer\b', text):
             framework = "puppeteer"
-        
+
         # Playwright
         elif re.search(r"require\(['\"]@playwright/test['\"]\)", text) or \
              re.search(r'from\s+[\'"]@playwright/test[\'"]', text) or \
@@ -118,7 +122,7 @@ def detect_framework_from_text(text, language):
            re.search(r'///\s*<reference\s+types\s*=\s*["\']cypress["\']\s*/>', text) or \
            re.search(r'\bcy\.\w', text):
             framework = "cypress"
-        
+
         # Puppeteer
         elif re.search(r"require\(['\"]puppeteer['\"]\)", text) or \
                 re.search(r'from\s+[\'"]puppeteer[\'"]', text) or \
@@ -136,7 +140,7 @@ def detect_framework_from_text(text, language):
     elif language == "py":
         if re.search(r'\bdef\s+test_', text):
             is_test = True
-            
+
         # Playwright-Python
         if re.search(r'import\s+playwright\b', text) or \
            re.search(r'from\s+playwright\b', text):
@@ -148,6 +152,7 @@ def detect_framework_from_text(text, language):
             framework = "puppeteer"
 
     return framework if (framework and is_test) else None
+
 
 # def detect_locator_breaks(patch_text, language):
 #     """
@@ -172,6 +177,7 @@ def detect_framework_from_text(text, language):
 #             return True
 #     return False
 
+
 def clone_repo(repo_name, path=None):
     """Clones or updates the repo
 
@@ -188,11 +194,13 @@ def clone_repo(repo_name, path=None):
     else:
         subprocess.call(["git", "-C", repo_path, "pull"])
 
+
 def delete_repo(repo_name):
     print("Deleting repo: " + repo_name)
     repo_path = f'{repos_path}/{repo_name}'
     if os.path.exists(repo_path):
         shutil.rmtree(repo_path)
+
 
 def get_commits(repo):
     """Gets commits from repo and stores which test files are edit in each commit
@@ -244,6 +252,7 @@ def get_commits(repo):
     for test_file in repo.test_files:
         test_file.commits = file_commits[test_file.test_path]
 
+
 def get_all_repo_files(repo_name):
     """Get all repo files
 
@@ -255,6 +264,7 @@ def get_all_repo_files(repo_name):
     repo = Repo(repo_path)
     all_repo_paths = [file.path for file in repo.tree().traverse() if file.type == "blob"]
     return all_repo_paths
+
 
 def get_tests(repo_name):
     """Get all test files for repo
@@ -327,11 +337,13 @@ def get_tests(repo_name):
 
     return test_files
 
+
 def get_file_content(repo_name, file_path):
     full_path = f'{repos_path}/{repo_name}/{file_path}'
     content = Path(full_path).read_text()
 
     return content
+
 
 def get_locator_breaks(repo):
     """Get all locator breaks
@@ -347,26 +359,31 @@ def get_locator_breaks(repo):
         for commit_pair in test_file.commits:
             repo.locator_breaks.extend(get_locator_break_for_commit_in_file(repo.repository_name, test_file.test_path, commit_pair))
 
-CHAIN_PATTERN = r"(?:\.(?:contains|find|closest|filter|children|parent|siblings|first|last|eq|next|prev|within)\(.*?\))*"
-
 
 patterns = [
-    re.compile(r"cy\.get\((.+?)\)" + CHAIN_PATTERN + r"(?=[;.\s]|$)"),
-    re.compile(r"cy\.contains\((.+?)\)" + CHAIN_PATTERN + r"(?=[;.\s]|$)"),
-    re.compile(r"cy\.find\((.+?)\)" + CHAIN_PATTERN + r"(?=[;.\s]|$)"),
-    re.compile(r"cy\.getByTestId\((.+?)\)" + CHAIN_PATTERN + r"(?=[;.\s]|$)"),
-
-    re.compile(r"page\.locator\((.+?)\)" + CHAIN_PATTERN + r"(?=[;.\s]|$)"),
-    re.compile(r"page\.getByText\((.+?)\)" + CHAIN_PATTERN + r"(?=[;.\s]|$)"),
-    re.compile(r"page\.getByTestId\((.+?)\)" + CHAIN_PATTERN + r"(?=[;.\s]|$)"),
-    re.compile(r"page\.getByRole\((.+?)\)" + CHAIN_PATTERN + r"(?=[;.\s]|$)"),
-
-    re.compile(r"page\.\$\((.+?)\)" + CHAIN_PATTERN + r"(?=[;.\s]|$)"),
-    re.compile(r"page\.\$\$\((.+?)\)" + CHAIN_PATTERN + r"(?=[;.\s]|$)"),
-    re.compile(r"page\.\$eval\((.+?)\)" + CHAIN_PATTERN + r"(?=[;.\s]|$)"),
-    re.compile(r"page\.waitForSelector\((.+?)\)" + CHAIN_PATTERN + r"(?=[;.\s]|$)"),
-    re.compile(r"page\.click\((.+?)\)" + CHAIN_PATTERN + r"(?=[;.\s]|$)")
+    re.compile(r"cy\.get\((.+?)\)(?=[;.\s]|$)"),
+    re.compile(r"cy\.contains\((.+?)\)(?=[;.\s]|$)"),
+    re.compile(r"cy\.find\((.+?)\)(?=[;.\s]|$)"),
+    re.compile(r"cy\.getByTestId\((.+?)\)(?=[;.\s]|$)"),
+    re.compile(r"page\.locator\((.+?)\)(?=[;.\s]|$)"),
+    re.compile(r"page\.getByText\((.+?)\)(?=[;.\s]|$)"),
+    re.compile(r"page\.getByTestId\((.+?)\)(?=[;.\s]|$)"),
+    re.compile(r"page\.getByRole\((.+?)\)(?=[;.\s]|$)"),
+    re.compile(r"page\.\$\((.+?)\)(?=[;.\s]|$)"),
+    re.compile(r"page\.\$\$\((.+?)\)(?=[;.\s]|$)"),
+    re.compile(r"page\.\$eval\((.+?)\)(?=[;.\s]|$)"),
+    re.compile(r"page\.waitForSelector\((.+?)\)(?=[;.\s]|$)"),
+    re.compile(r"page\.click\((.+?)\)(?=[;.\s]|$)"),
 ]
+
+
+def get_potential_locator_from_line(line):
+    for pattern in patterns:
+        match = pattern.search(line)
+        if match:
+            return match.group(0)
+    return None
+
 
 def get_locator_break_for_commit_in_file(repo_name, file_path, commit):
     """Get locator breaks for commit in file
@@ -389,19 +406,28 @@ def get_locator_break_for_commit_in_file(repo_name, file_path, commit):
         content = get_file_content(repo_name, patchedFile.path)
         framework = detect_framework_from_text(content, lang)
         for hunk in patchedFile:
+            invalid = False
             old_locator = None
             for line in hunk:
-                potential_locator = get_potential_locator_from_line(line.value.strip())
-                if potential_locator:
-                    if old_locator is not None and line.is_added and old_locator != potential_locator:
-                        locator_breaks.append(LocatorBreak(potential_locator, old_locator, line.target_line_no, commit, file_path, framework))
-                        old_locator = None
-                    elif line.is_removed:
-                        old_locator = potential_locator
+                if invalid:
+                   if line.is_added:
+                       invalid = False
+                else:
+                    potential_locator = get_potential_locator_from_line(line.value.strip())
+                    if potential_locator:
+                        if old_locator is not None and line.is_added and old_locator != potential_locator:
+                            if strip_assertions(old_locator) != strip_assertions(potential_locator):
+                                locator_breaks.append(LocatorBreak(potential_locator, old_locator, line.target_line_no, commit, file_path, framework))
+                            old_locator = None
+                        elif line.is_removed:
+                            if old_locator is None:
+                                old_locator = potential_locator
+                            else:
+                                invalid = True
+                        else:
+                            old_locator = None
                     else:
                         old_locator = None
-                else:
-                    old_locator = None
 
     return locator_breaks
 

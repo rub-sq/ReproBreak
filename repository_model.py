@@ -54,13 +54,14 @@ class Commit:
         return f'{self.sha}, Commit: {self.commit_date}, Previous: {self.previous_sha}'
 
 class LocatorBreak:
-    def __init__(self, new_locator, old_locator, line_no, commit_pair, test_file):
+    def __init__(self, new_locator, old_locator, line_no, commit_pair, test_file, framework):
         self.new_locator = new_locator
         self.old_locator = old_locator
         self.commit_pair = commit_pair
         self.test_file_path = test_file
         self.line_no = line_no
         self.test_case = None
+        self.framework = framework
 
     def __str__(self):
         return f'{self.test_file_path}: {self.commit_pair}\n\t{self.old_locator} -> {self.new_locator}'
