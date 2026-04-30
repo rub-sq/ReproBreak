@@ -8,6 +8,8 @@ DELETE_REPO_AFTER_ANALYZE = True
 CREATE_OVERVIEW = True
 SAVE_TO_DB = True
 
+PARALLEL_CONTAINERS = 2
+
 REPO_LIST = [
     "quantumlib/cirq",
     "wandb/weave",
