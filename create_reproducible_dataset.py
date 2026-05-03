@@ -3,6 +3,7 @@ import subprocess
 import json
 import re
 import sys
+import threading
 from enum import Enum
 
 import docker
@@ -40,6 +41,7 @@ def create_dataset(repo):
     reproduction_result_folder = get_reproduction_result_folder(reproduce_path)
 
     reproduction_results = process_breaks(repo_path, reproduce_path, reproduction_result_folder)
+    update_reproduction_json(reproduce_path, reproduction_results)
     copy_reproduction_files(reproduce_path, reproduction_result_folder)
 
 
@@ -67,7 +69,7 @@ def get_potential_breaks_for_repo(cur, repo_name):
             commit_sha,
             {
                 "test_files": {},
-                "has_error": False,
+                "has_error": None,
             },
         )
         commit_entry["test_files"].setdefault(
@@ -153,8 +155,7 @@ def save_reproduction_results(reproduction_result_folder, commit_sha, commit_bre
         json.dump(results, file, indent=4)
 
 
-def get_current_results(path):
-    json_path = path + "/reproduction.json"
+def get_current_results(json_path):
     if os.path.exists(json_path):
         with open(json_path, "r") as file:
             return json.load(file)
@@ -163,14 +164,9 @@ def get_current_results(path):
 def get_changes_with_error(path):
     results = get_current_results(path)
     filtered = {}
-    for commit_sha, commit_entry in results.items():
-        filtered_files = {
-            path: file_entry
-            for path, file_entry in commit_entry["test_files"].items()
-            if file_entry["status"] not in (TestStatus.PASSED, TestStatus.FAILED)
-        }
-        if filtered_files:
-            filtered[commit_sha] = {**commit_entry, "test_files": filtered_files}
+    for commit_sha, commit_breaks in results.items():
+        if commit_breaks["has_error"] or commit_breaks["has_error"] is None:
+            filtered[commit_sha] = commit_breaks
     return filtered
 
 
@@ -193,7 +189,7 @@ def process_breaks(repo_path, reproduce_path, reproduction_result_folder):
                             3. Reset
     """
     client = docker.from_env()
-    commits_to_process = get_changes_with_error(reproduce_path)
+    commits_to_process = get_changes_with_error(f"{reproduce_path}/reproduction.json")
 
     for commit_sha, commit_breaks in tqdm(
         commits_to_process.items(),
@@ -285,10 +281,20 @@ def run_e2e_tests(client, image, command="bash /run_tests.sh", volumes=None):
             remove=False,
         )
 
-        exit_code = container.wait()["StatusCode"]
-        output = container.logs(stream=False)
+        result = {}
+        def wait_for_container():
+            result["status_code"] = container.wait()["StatusCode"]
 
-        return parse_test_result(exit_code, output)
+        thread = threading.Thread(target=wait_for_container)
+        thread.start()
+        thread.join(timeout=300)
+
+        if thread.is_alive():
+            container.kill()
+            return TestStatus.DID_NOT_START
+
+        output = container.logs(stream=False)
+        return parse_test_result(result["status_code"], output)
 
     except Exception as e:
         return TestStatus.DID_NOT_START
@@ -329,7 +335,19 @@ def setup_base_image(client, reproduce_path, commit_sha):
         )
         return image_tag
     except Exception:
+        print("Image could not be built for commit " + commit_sha)
         return None
+
+def update_reproduction_json(reproduce_path, commit_breaks):
+    reproduction_json_path = reproduce_path + "/reproduction.json"
+    old_result = get_current_results(reproduction_json_path)
+    for commit_sha, commit_break in commit_breaks.items():
+        if commit_break["has_error"] or commit_break["has_error"] is None:
+            continue
+        old_result[commit_sha] = commit_breaks[commit_sha]
+
+    with open(reproduction_json_path, "w") as f:
+        json.dump(old_result, f, indent=4)
 
 if __name__ == "__main__":
     create_dataset(sys.argv[1])
