@@ -4,6 +4,7 @@ import json
 import re
 import sys
 import threading
+from pathlib import Path
 from enum import Enum
 
 import docker
@@ -35,8 +36,9 @@ def create_dataset(repo):
     reproduce_path = f"{REPRODUCTION_PATH}/repos/{repo_name}"
     repo_path = f"{reproduce_path}/{repo_name}"
 
-    prepare_json(repo, reproduce_path)
-    clone_repo(repo, repo_path)
+    if (Path(f"{reproduce_path}/reproduction.json")).exists():
+        prepare_json(repo, reproduce_path)
+        clone_repo(repo, repo_path)
 
     reproduction_result_folder = get_reproduction_result_folder(reproduce_path)
 
@@ -105,21 +107,6 @@ def get_reproduction_result_folder(reproduce_path):
     folder_number = sum(1 for entry in os.scandir(result_folder) if entry.is_dir())
     reproduction_result_folder = f"{result_folder}/{folder_number + 1}"
     return reproduction_result_folder
-
-
-def extend_reproduction(repo):
-    """
-    Checks for reproducible locator breaks of repo and adds them to db.
-    Only runs for the potential locator breaks which are not yet reproducible
-    """
-    repo_name = repo.split("/")[-1]
-    reproduce_path = f"{REPRODUCTION_PATH}/repos/{repo_name}"
-    repo_path = f"{reproduce_path}/{repo_name}"
-
-    reproduction_result_folder = get_reproduction_result_folder(reproduce_path)
-
-    process_breaks(repo_path, reproduce_path, reproduction_result_folder)
-    copy_reproduction_files(reproduce_path, reproduction_result_folder)
 
 
 def copy_reproduction_files(reproduction_files_folder, reproduction_result_folder):
@@ -203,6 +190,7 @@ def process_breaks(repo_path, reproduce_path, reproduction_result_folder):
             commit_breaks["has_error"] = True
             for test_file_path, breaks_in_file in commit_breaks["test_files"].items():
                 breaks_in_file["status"] = TestStatus.BROKEN_IMAGE
+            save_reproduction_results(reproduction_result_folder, commit_sha, commit_breaks)
             continue
         for test_file_path, breaks_in_file in tqdm(
             commit_breaks["test_files"].items(),
