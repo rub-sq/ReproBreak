@@ -22,9 +22,9 @@ def analyze_results(repo, run_number = None):
 
     commits_with_error = []
     commits_without_error = []
-    test_files_with_error = []
-    failing_test_files = []
-    successful_test_files = []
+    test_files_with_error = 0
+    failing_test_files = 0
+    successful_test_files = 0
 
     reproducible_locator_break = []
     no_locator_break = []
@@ -37,17 +37,17 @@ def analyze_results(repo, run_number = None):
 
         for test_file_path, breaks_in_file in commit_breaks["test_files"].items():
             if breaks_in_file["status"] == "failed":
-                failing_test_files.append(test_file_path)
+                failing_test_files += 1
             elif  breaks_in_file["status"] == "passed":
-                successful_test_files.append(test_file_path)
+                successful_test_files += 1
             else:
-                test_files_with_error.append(test_file_path)
+                test_files_with_error += 1
 
             for locator_change in breaks_in_file["locator_changes"]:
                 if locator_change["is_reproducible_break"]:
                     reproducible_locator_break.append(locator_change["lc.id"])
-                elif not locator_change["is_reproducible_break"]:
-                    no_locator_break.append(test_file_path)
+                elif locator_change["is_reproducible_break"] is not None and not locator_change["is_reproducible_break"]:
+                    no_locator_break.append(locator_change["lc.id"])
 
 
 
@@ -63,6 +63,7 @@ def analyze_results(repo, run_number = None):
 
 
 def main():
+
     if len(sys.argv) != 3:
         print("Usage: python analyze_results.py <repo_name> <run_number>")
         print("Example: python analyze_results.py ghiscoding/angular-slickgrid 1")
@@ -78,13 +79,70 @@ def main():
     print("=" * 60)
     print(f"Total commits with error: {len(results['commits_with_error'])}: {results['commits_with_error']}")
     print(f"Total commits without error: {len(results['commits_without_error'])}: {results['commits_without_error']}")
-    print(f"Total test files with error: {len(results['test_files_with_error'])}: {results['test_files_with_error']}")
-    print(f"Total failing test files: {len(results['failing_test_files'])}: {results['failing_test_files']}")
-    print(f"Total successful test files: {len(results['successful_test_files'])}: {results['successful_test_files']}")
+    print(f"Total test files with error: {results['test_files_with_error']}")
+    print(f"Total failing test files: {results['failing_test_files']}")
+    print(f"Total successful test files: {results['successful_test_files']}")
     print(f"Total reproducible locator breaks: {len(results['reproducible_locator_break'])}: {results['reproducible_locator_break']}")
     print(f"Total no locator breaks: {len(results['no_locator_break'])}: {results['no_locator_break']}")
     print("=" * 60)
 
 
+def lb_ratio_for_repo(repo_name):
+    reproduction_json_path = f"{REPRODUCTION_PATH}/repos/{repo_name}/reproduction.json"
+    with open(reproduction_json_path, "r") as f:
+        result = json.load(f)
+
+    total_lc = 0
+    total_inspected_lc = 0
+    reproducible_breaks = 0
+    no_breaks = 0
+
+    for commit in result.values():
+        for test_file in commit["test_files"].values():
+            for locator_change in test_file["locator_changes"]:
+                total_lc += 1
+                is_reproducible_break = locator_change["is_reproducible_break"]
+                if is_reproducible_break is not None:
+                    total_inspected_lc += 1
+                    if is_reproducible_break:
+                        reproducible_breaks += 1
+                    else:
+                        no_breaks += 1
+
+    return total_lc, total_inspected_lc, reproducible_breaks, no_breaks
+
+
+def lb_ratio_for_all_repos():
+    repos_path = f"{REPRODUCTION_PATH}/repos"
+    total_lc = 0
+    total_inspected_lc = 0
+    reproducible_breaks = 0
+    no_breaks = 0
+
+    for repo_dir in Path(repos_path).iterdir():
+        if repo_dir.is_dir():
+            repo_name = repo_dir.name
+            lc, lic, rb, nb = lb_ratio_for_repo(repo_name)
+            total_lc += lc
+            total_inspected_lc += lic
+            reproducible_breaks += rb
+            no_breaks += nb
+
+    return total_lc, total_inspected_lc, reproducible_breaks, no_breaks
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) == 1:
+        total_lc, total_inspected_lc, reproducible_breaks, no_breaks = lb_ratio_for_all_repos()
+        print(f"Total locator changes: {total_lc}")
+        print(f"Total inspected locator changes: {total_inspected_lc}")
+        print(f"Reproducible locator breaks: {reproducible_breaks}")
+        print(f"No locator breaks: {no_breaks}")
+    elif len(sys.argv) == 2:
+        total_lc, total_inspected_lc, reproducible_breaks, no_breaks = lb_ratio_for_repo(sys.argv[1])
+        print(f"Locator changes for {sys.argv[1]}:")
+        print(f"Total locator changes: {total_lc}")
+        print(f"Total inspected locator changes: {total_inspected_lc}")
+        print(f"Reproducible locator breaks: {reproducible_breaks}")
+        print(f"No locator breaks: {no_breaks}")
+    else:
+        main()

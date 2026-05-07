@@ -3,6 +3,7 @@ import json
 import os
 
 from config import LB_PATH, REPRODUCTION_PATH
+import sys
 
 def store_reproduction_in_db(repo):
     """Stores reproducible locator breaks in database
@@ -29,16 +30,16 @@ def store_reproduction_in_db(repo):
         with open(result_path, "r") as file:
             result = json.load(file)
 
-        reproduction_files = read_files_to_json(folder_path)
+        reproduction_files = read_concrete_files_to_json(folder_path)
         reproduction_file_id = insert_reproduction_files(con, cur, reproduction_files)
 
         reproducable_locator_breaks = []
         for commit, commit_info in result.items():
             for file_path, file_info in commit_info["test_files"].items():
-                for potential_break in file_info["potential_breaks"]:
+                for potential_break in file_info["locator_changes"]:
                     if potential_break["is_reproducible_break"]:
-                        locator_change_id = get_locator_change_id(cur, repo, commit, file_path, potential_break["old_locator"], potential_break["new_locator"], potential_break["line_no"])
-                        reproducable_locator_breaks.append(locator_change_id)
+                        #locator_change_id = get_locator_change_id(cur, repo, commit, file_path, potential_break["old_locator"], potential_break["new_locator"], potential_break["line_no"])
+                        reproducable_locator_breaks.append(potential_break["lc.id"])
         store_locator_breaks(cur, reproduction_file_id, reproducable_locator_breaks)
 
     con.close()
@@ -51,6 +52,21 @@ def get_locator_change_id(cur, repo, commit, file_path, old_locator, new_locator
     cur.execute(query, (repo, commit, file_path, old_locator, new_locator, line_no))
 
     return cur.fetchone()[0]
+
+def read_concrete_files_to_json(files_path):
+    files_dict = {}
+    file_names = [
+        "Dockerfile",
+        "run_tests.sh"
+    ]
+
+    for filename in file_names:
+        file_path = os.path.join(files_path, filename)
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+            files_dict[filename] = content
+
+    return json.dumps(files_dict)
 
 def read_files_to_json(files_path):
     files_dict = {}
@@ -84,3 +100,7 @@ def store_locator_breaks(cur, reproduction_files_id, locator_change_ids):
 
     cur.executemany(query, locator_breaks)
     cur.connection.commit()
+
+
+if __name__ == "__main__":
+    store_reproduction_in_db(sys.argv[1])

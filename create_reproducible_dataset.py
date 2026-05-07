@@ -36,7 +36,7 @@ def create_dataset(repo):
     reproduce_path = f"{REPRODUCTION_PATH}/repos/{repo_name}"
     repo_path = f"{reproduce_path}/{repo_name}"
 
-    if (Path(f"{reproduce_path}/reproduction.json")).exists():
+    if not (Path(f"{reproduce_path}/reproduction.json")).exists():
         prepare_json(repo, reproduce_path)
         clone_repo(repo, repo_path)
 
@@ -192,6 +192,7 @@ def process_breaks(repo_path, reproduce_path, reproduction_result_folder):
                 breaks_in_file["status"] = TestStatus.BROKEN_IMAGE
             save_reproduction_results(reproduction_result_folder, commit_sha, commit_breaks)
             continue
+
         for test_file_path, breaks_in_file in tqdm(
             commit_breaks["test_files"].items(),
             desc="Testing files",
@@ -240,7 +241,9 @@ def process_breaks(repo_path, reproduce_path, reproduction_result_folder):
                             potential_break["is_reproducible_break"] = True
                         elif test_result == TestStatus.PASSED:
                             potential_break["is_reproducible_break"] = False
+                    commit_breaks["has_error"] = False
                 case TestStatus.FAILED:
+                    commit_breaks["has_error"] = False
                     print("Some tests failed")
                 case TestStatus.DID_NOT_START:
                     commit_breaks["has_error"] = True
@@ -332,7 +335,7 @@ def update_reproduction_json(reproduce_path, commit_breaks):
     for commit_sha, commit_break in commit_breaks.items():
         if commit_break["has_error"] or commit_break["has_error"] is None:
             continue
-        old_result[commit_sha] = commit_breaks[commit_sha]
+        old_result[commit_sha] = convert_enums(commit_breaks[commit_sha])
 
     with open(reproduction_json_path, "w") as f:
         json.dump(old_result, f, indent=4)
