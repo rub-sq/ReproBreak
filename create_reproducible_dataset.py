@@ -13,7 +13,6 @@ import os
 import shutil
 
 from config import LB_PATH, REPRODUCTION_PATH
-from reproduce import replace_locator, clone_repo
 
 class TestStatus(Enum):
     PASSED = "passed"
@@ -155,7 +154,6 @@ def get_changes_with_error(path):
         if commit_breaks["has_error"] or commit_breaks["has_error"] is None:
             filtered[commit_sha] = commit_breaks
     return filtered
-
 
 def process_breaks(repo_path, reproduce_path, reproduction_result_folder):
     """
@@ -339,6 +337,29 @@ def update_reproduction_json(reproduce_path, commit_breaks):
 
     with open(reproduction_json_path, "w") as f:
         json.dump(old_result, f, indent=4)
+
+def replace_locator(old_locator, new_locator, line_no, test_file_path, repo_path):
+    file_path = f'{repo_path}/{test_file_path}'
+
+    with open(file_path, 'r', encoding='utf-8') as file:
+        lines = file.readlines()
+
+    target_line = lines[line_no - 1]
+    if old_locator not in target_line:
+        print("Old locator not found")
+    else:
+        lines[line_no - 1] = target_line.replace(old_locator, new_locator, 1)
+
+        with open(file_path, 'w') as file:
+            file.writelines(lines)
+
+
+def clone_repo(repo_name, repo_path):
+    print("Cloning repo: " + repo_name)
+    if not os.path.exists(repo_path):
+        repo_link = f'https://github.com/{repo_name}.git'
+        subprocess.call(["git", "clone", repo_link, repo_path])
+
 
 if __name__ == "__main__":
     create_dataset(sys.argv[1])

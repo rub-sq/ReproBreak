@@ -7,8 +7,10 @@ from pathlib import Path
 import sqlite3
 import shutil
 import time
+import docker
 
 from config import LB_PATH, REPRODUCTION_PATH
+from create_reproducible_dataset import clone_repo, replace_locator, setup_base_image, run_e2e_tests, TestStatus
 
 
 def main():
@@ -53,16 +55,52 @@ def main():
     clone_repo(info['repository_name'], repo_path)
     subprocess.call(["git", "-C", repo_path, "checkout", info['commit_sha']])
 
-    # Step 3: Replace locator
-    if args.reproduce_break:
-        replace_locator(info["new_locator"], info["old_locator"], info["line_no"], info["test_file_path"], repo_path)
-
-    # Step 4: Extract reproduce files
+    # Step 3: Extract reproduce files
     extract_reproduction_files(info['files_json'], reproduce_path, repo_name)
 
-    if info['instructions']:
-        print("*" * 10 + " Instructions " + "*" * 10, )
-        print(info['instructions'])
+    # Step 4: Setup image
+    print("🔧 Setting up Docker image...")
+    client = docker.from_env()
+    image = setup_base_image(client, reproduce_path, info['commit_sha'])
+
+    if image is None:
+        print(f"❌ Failed to build Docker image for reproduction.")
+        sys.exit(1)
+
+    # Step 5: Replace locator
+    test_file_path = info['test_file_path']
+    absolute_repo_path = os.path.abspath(repo_path)
+    if args.reproduce_break:
+        replace_locator(info["new_locator"], info["old_locator"], info["line_no"], info["test_file_path"], repo_path)
+        test_result = run_e2e_tests(
+            client,
+            image,
+            command=f"bash /run_tests.sh /app/{test_file_path}",
+            volumes={
+                f'{absolute_repo_path}/{test_file_path}': {'bind': f'/app/{test_file_path}', 'mode': 'ro'}
+            }
+        )
+    else:
+        test_result = run_e2e_tests(
+            client,
+            image,
+            f"bash /run_tests.sh /app/{test_file_path}"
+        )
+
+    absolute_test_file_path = f"{absolute_repo_path}/{test_file_path}"
+
+    print(f"Locator information")
+    print(f"File path: {os.path.abspath(absolute_test_file_path)}")
+    print(f"Line number: {info['line_no']}")
+    if args.reproduce_break:
+        print(f"Locator change: {info['old_locator']} -> {info['new_locator']}")
+
+    if test_result == TestStatus.PASSED:
+        print(f"✅ Test passed successfully!")
+    elif test_result == TestStatus.FAILED:
+        print(f"❌ Test failed!")
+    else:
+        print(f"⚠️ Test execution resulted in failure: {test_result}")
 
 def get_locator_break_reproduction_info(db_path, locator_id):
     con = sqlite3.connect(db_path)
@@ -94,11 +132,6 @@ def get_locator_break_reproduction_info(db_path, locator_id):
         'instructions': result[7],
     }
 
-def clone_repo(repo_name, repo_path):
-    print("Cloning repo: " + repo_name)
-    if not os.path.exists(repo_path):
-        repo_link = f'https://github.com/{repo_name}.git'
-        subprocess.call(["git", "clone", repo_link, repo_path])
 
 def extract_reproduction_files(files_json, output_path, repo_name):
     # Clean old files
@@ -124,20 +157,6 @@ def extract_reproduction_files(files_json, output_path, repo_name):
 
         print(f"  ✓ {filename}")
 
-def replace_locator(old_locator, new_locator, line_no, test_file_path, repo_path):
-    file_path = f'{repo_path}/{test_file_path}'
-
-    with open(file_path, 'r', encoding='utf-8') as file:
-        lines = file.readlines()
-
-    target_line = lines[line_no - 1]
-    if old_locator not in target_line:
-        print("Old locator not found")
-    else:
-        lines[line_no - 1] = target_line.replace(old_locator, new_locator, 1)
-
-        with open(file_path, 'w') as file:
-            file.writelines(lines)
 
 if __name__ == "__main__":
     main()
