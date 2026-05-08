@@ -38,10 +38,10 @@ def main():
     print()
 
     repos_path = f'{args.work_dir}/repos'
-    if not os.path.exists(repos_path):
-        os.mkdir(repos_path)
+    os.makedirs(repos_path, exist_ok=True)
 
     # Step 1: Get info from database
+
     print(f"🔍 Getting info for locator break ID: {args.locator_id}")
     info = get_locator_break_reproduction_info(args.db, args.locator_id)
 
@@ -56,6 +56,7 @@ def main():
     # Step 2: Clone repository and checkout commit sha
     repo_name = info["repository_name"].split("/")[-1]
     reproduce_path = f'{repos_path}/{repo_name}'
+    os.makedirs(reproduce_path, exist_ok=True)
     repo_path = f'{reproduce_path}/{repo_name}'
     clone_repo(info['repository_name'], repo_path)
     if args.mode in [Reproduction_Mode.REPRODUCE_BREAK.value, Reproduction_Mode.FIXED.value]:
