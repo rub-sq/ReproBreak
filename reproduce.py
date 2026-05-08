@@ -6,13 +6,17 @@ import subprocess
 from pathlib import Path
 import sqlite3
 import shutil
-import time
 import docker
+from enum import Enum
 
 from config import LB_PATH, REPRODUCTION_PATH
 from create_reproducible_dataset import clone_repo, replace_locator, setup_base_image, run_e2e_tests, TestStatus, \
     reset_repository
 
+class Reproduction_Mode(Enum):
+    REPRODUCE_BREAK = "reproduce_break"
+    FIXED = "fixed"
+    OVERWRITE = "overwrite"
 
 def main():
     parser = argparse.ArgumentParser(description='Reproduce environment from locator break')
@@ -22,10 +26,9 @@ def main():
                         help='Path to SQLite database')
     parser.add_argument('--work_dir', default=REPRODUCTION_PATH,
                         help='Working directory for reproduction (default: ./reproduction)')
-    parser.add_argument('--reproduce_break', default=False,
-                        help='Reproduce break with old locator (default: False')
-    parser.add_argument('--reset', type=str, default=True,
-                        help='Reset repository before reproduction (default: True)')
+    parser.add_argument('--mode', type=str, required=True,
+                        choices=[m.value for m in Reproduction_Mode],
+                        help='Reproduction mode: REPRODUCE_BREAK, FIXED, or OVERWRITE')
 
     args = parser.parse_args()
 
@@ -55,7 +58,7 @@ def main():
     reproduce_path = f'{repos_path}/{repo_name}'
     repo_path = f'{reproduce_path}/{repo_name}'
     clone_repo(info['repository_name'], repo_path)
-    if args.reset:
+    if args.mode in [Reproduction_Mode.REPRODUCE_BREAK.value, Reproduction_Mode.FIXED.value]:
         reset_repository(repo_path)
     subprocess.call(["git", "-C", repo_path, "checkout", info['commit_sha']])
 
@@ -80,13 +83,14 @@ def main():
     # Step 5: Replace locator
     test_file_path = info['test_file_path']
     absolute_repo_path = os.path.abspath(repo_path)
-    if args.reproduce_break:
+    if args.mode == Reproduction_Mode.REPRODUCE_BREAK.value:
         print(f"Replacing locator to reproduce break...")
         replace_locator(info["new_locator"], info["old_locator"], info["line_no"], info["test_file_path"], repo_path)
 
     absolute_test_file_path = f"{absolute_repo_path}/{test_file_path}"
 
     # Step 6: Run tests
+    print("🚀 Running GUI-tests tests...")
     test_result = run_e2e_tests(
         client,
         image,
@@ -99,7 +103,7 @@ def main():
     print(f"Locator information")
     print(f"File path: {os.path.abspath(absolute_test_file_path)}")
     print(f"Line number: {info['line_no']}")
-    if args.reproduce_break:
+    if args.mode == Reproduction_Mode.REPRODUCE_BREAK.value:
         print(f"Locator change: {info['old_locator']} -> {info['new_locator']}")
 
     if test_result == TestStatus.PASSED:
