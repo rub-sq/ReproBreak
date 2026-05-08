@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS test_file_commit(
 
 CREATE TABLE IF NOT EXISTS locator_break(
     locator_change_id INTEGER NOT NULL,
-    reproduce_files_id INTERGER NOT NULL,
+    reproduce_files_id INTEGER NOT NULL,
     PRIMARY KEY (locator_change_id, reproduce_files_id),
     FOREIGN KEY (locator_change_id) REFERENCES locator_change(id),
     FOREIGN KEY (reproduce_files_id) REFERENCES reproduce_files(id)

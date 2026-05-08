@@ -1,46 +1,132 @@
-# A Dataset of Reproducible Web Locator Breakages
+<p align="center">
+  <img src="images/logo.svg" alt="ReproBreak logo" height="260" />
+</p>
 
-### Usage
 
-#### Requirements
-* Python
-* Git CLI
-* Docker and docker-compose
-* Make
+<p align="center">
+ ReproBreak: A Dataset of Reproducible Web Locator Breaks
+</p>
 
-#### Config
-The [Config](config.py) contains all settings regarding the repo
-* OUTPUT_PATH: Folder where the outputs will be placed
-* REPOS_PATH: Folder where the repositories will be stored
-* LB_PATH: Location of the locator break database
-* REPRODUCTION_PATH: Location of reproduction files
-* START_WITH_CLEAN_DB: If true, each run will generate a new database, if false it will extend the db in the output folder
-* DELETE_REPO_AFTER_ANALYZE: If true, will delete each repo after processing
-* CREATE_OVERVIEW: If true, will generate a CSV overview
-* SAVE_TO_DB: If true, will save results to db
-* REPO_LIST: List of repositories used for dataset
+---
 
-#### Create Dataset
-The file [create_dataset.py](create_dataset.py) is used to create the dataset of locator changes
 
-#### Create Reproduction
-The file [create_reproducible_dataset.py](create_reproudcible_dataset.py) is used to check for reproducible locator breaks.
-Under REPRODUCTION_PATH create a folder called repos, containing another folder named after the repository you want to reproduce.
-In this folder place all files to reproduce locator breaks. This should atleast include a Makefile with the following targets:
-* start: should start the application
-* test: should start all the tests and provide a way to only start the tests of a single file
-* stop: should stop all services
-* setup-e2e: should provide all steps to setup the gui tests, like installing dependencies
-After setting up the files the function can be called with the full repository name and a ready_message, which is a log message of the started application, which signals the application is ready
+## Requirements
 
-#### Extending the reproduction
-A set of reproduction files may not be enough to reproduce all locator changes of all commits in a repo.
-For this there is the extend_reproduction function. After changing the files, which were placed in the folder before, call this function to check the remaining locator changes.
-This can be repeated till every locator change is reproducible
+| Tool | Version |
+|:---|:---|
+| Python | 3.10+ |
+| Git CLI | any |
+| Docker | with Compose |
+| uv *(recommended)* | latest |
 
-#### Save Reproduction results
-After iterating through locator changes, there will be many reproduction result folders.
-The file [save_reproduction.py](save_reproduction.py)  contains the store_reproduction_in_db function which will parse the reproduction files and store each in the database.
+---
 
-#### Reproducing locator breaks
-The file [reproduce.py](reproduce.py) can be run through a terminal to reproduce locator breaks.
+## Setup
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/rub-sq/ReproBreak
+cd ReproBreak
+```
+
+### 2. Download the dataset
+
+Download the pre-built database from Google Drive:
+
+> **[Download locator_break.db](<GOOGLE_DRIVE_LINK>)**
+
+Unzip and place it in the `data/` folder:
+
+```bash
+unzip locator_break.zip -d data/
+```
+
+### 3. Install dependencies
+
+```bash
+uv sync
+```
+
+<details>
+<summary>Using pip instead</summary>
+
+```bash
+pip install -e .
+```
+
+</details>
+
+---
+
+## Reproducing a Locator Break
+
+Reproduce any locator break from the dataset by its ID:
+
+```bash
+python reproduce.py --locator_id <ID> --mode <MODE>
+```
+
+| Mode | Behaviour |
+|:---|:---|
+| `reproduce_break` | Reverts locator to old value — test is expected to **fail** |
+| `fixed` | Runs with current (fixed) locator — test is expected to **pass** |
+| `overwrite` | Runs tests without modifying the locator |
+
+**Example:**
+
+```bash
+python reproduce.py --locator_id 42 --mode reproduce_break --db data/locator_break.db
+```
+
+---
+
+
+## Project Structure
+
+```
+reprobreak/
+├── reproduce.py                     # Reproduce a locator break
+├── create_dataset.py                # (Optional) Phase 1: Mine locator changes
+├── create_reproducible_dataset.py   # (Optional) Phase 2: Verify reproducibility
+├── save_reproduction.py             # (Optional) Phase 3: Store results in DB
+├── config.py                        # Global configuration
+├── database/
+│   └── schema.sql                   # SQLite schema
+└── data/
+    ├── locator_break.db             # Dataset (download separately)
+    └── reproduction_files/          # Per-repo reproduction environments
+```
+
+---
+
+
+## Building the Dataset *(optional)*
+
+<details>
+<summary>Click to expand</summary>
+
+The pre-built database covers 200+ repositories. To extend or rebuild it from scratch:
+
+**Phase 1 — Mine locator changes**
+```bash
+python create_dataset.py
+```
+
+**Phase 2 — Verify reproducibility**
+
+Place a `Makefile` with `start`, `test`, `stop`, and `setup-e2e` targets under `data/reproduction_files/repos/<repo-name>/`, then run:
+```bash
+python create_reproducible_dataset.py
+```
+
+**Phase 3 — Save results**
+```bash
+python save_reproduction.py
+```
+
+Key settings in [`config.py`](config.py): `REPO_LIST`, `START_WITH_CLEAN_DB`, `PARALLEL_CONTAINERS`, `DELETE_REPO_AFTER_ANALYZE`.
+
+</details>
+
+---
