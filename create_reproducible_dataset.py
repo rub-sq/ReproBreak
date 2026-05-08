@@ -12,7 +12,7 @@ from tqdm import tqdm
 import os
 import shutil
 
-from config import LB_PATH, REPRODUCTION_PATH
+from config import LB_PATH, REPRODUCTION_PATH, STOP_ON_ERROR
 
 class TestStatus(Enum):
     PASSED = "passed"
@@ -152,7 +152,17 @@ def get_changes_with_error(path):
     filtered = {}
     for commit_sha, commit_breaks in results.items():
         if commit_breaks["has_error"] or commit_breaks["has_error"] is None:
-            filtered[commit_sha] = commit_breaks
+            filtered[commit_sha] = {
+                "test_files": {},
+                "has_error": commit_breaks["has_error"],
+            }
+            test_files = {}
+            for test_file_path, test_file in commit_breaks["test_files"].items():
+                status = test_file["status"]
+                if status is None or status not in (TestStatus.PASSED, TestStatus.FAILED):
+                    test_files[test_file_path] = test_file
+            filtered[commit_sha]["test_files"] = test_files
+
     return filtered
 
 def process_breaks(repo_path, reproduce_path, reproduction_result_folder):
@@ -197,7 +207,7 @@ def process_breaks(repo_path, reproduce_path, reproduction_result_folder):
             position=1,
             leave=False,
         ):
-            if commit_breaks["has_error"]:
+            if commit_breaks["has_error"] and STOP_ON_ERROR:
                 breaks_in_file["status"] = TestStatus.EARLIER_ERROR
                 continue
             print("Initial test run for file " + test_file_path)
@@ -331,8 +341,11 @@ def update_reproduction_json(reproduce_path, commit_breaks):
     reproduction_json_path = reproduce_path + "/reproduction.json"
     old_result = get_current_results(reproduction_json_path)
     for commit_sha, commit_break in commit_breaks.items():
-        if commit_break["has_error"] or commit_break["has_error"] is None:
-            continue
+        old_result[commit_sha]["has_error"] = commit_break["has_error"]
+        for test_file_path, test_file in commit_break["test_files"].items():
+            status = test_file["status"]
+            if status in (TestStatus.PASSED, TestStatus.FAILED):
+                old_result[commit_sha][test_file_path] = convert_enums(test_file)
         old_result[commit_sha] = convert_enums(commit_breaks[commit_sha])
 
     with open(reproduction_json_path, "w") as f:
