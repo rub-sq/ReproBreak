@@ -10,7 +10,8 @@ import time
 import docker
 
 from config import LB_PATH, REPRODUCTION_PATH
-from create_reproducible_dataset import clone_repo, replace_locator, setup_base_image, run_e2e_tests, TestStatus
+from create_reproducible_dataset import clone_repo, replace_locator, setup_base_image, run_e2e_tests, TestStatus, \
+    reset_repository
 
 
 def main():
@@ -21,8 +22,10 @@ def main():
                         help='Path to SQLite database')
     parser.add_argument('--work_dir', default=REPRODUCTION_PATH,
                         help='Working directory for reproduction (default: ./reproduction)')
-    parser.add_argument('--reproduce_break', default=True,
-                        help='Reproduce break with old locator (default: True')
+    parser.add_argument('--reproduce_break', default=False,
+                        help='Reproduce break with old locator (default: False')
+    parser.add_argument('--reset', type=str, default=True,
+                        help='Reset repository before reproduction (default: True)')
 
     args = parser.parse_args()
 
@@ -48,11 +51,12 @@ def main():
     print()
 
     # Step 2: Clone repository and checkout commit sha
-
     repo_name = info["repository_name"].split("/")[-1]
     reproduce_path = f'{repos_path}/{repo_name}'
     repo_path = f'{reproduce_path}/{repo_name}'
     clone_repo(info['repository_name'], repo_path)
+    if args.reset:
+        reset_repository(repo_path)
     subprocess.call(["git", "-C", repo_path, "checkout", info['commit_sha']])
 
     # Step 3: Extract reproduce files
@@ -61,33 +65,36 @@ def main():
     # Step 4: Setup image
     print("🔧 Setting up Docker image...")
     client = docker.from_env()
-    image = setup_base_image(client, reproduce_path, info['commit_sha'])
 
-    if image is None:
-        print(f"❌ Failed to build Docker image for reproduction.")
-        sys.exit(1)
+    image = f"{repo_name}:{info['commit_sha']}"
+
+    filtered_images = client.images.list(filters={'reference': image})
+    if len(filtered_images) < 1:
+        image = setup_base_image(client, reproduce_path, info['commit_sha'])
+        if image is None:
+            print(f"❌ Failed to build Docker image.")
+            sys.exit(1)
+    else:
+        print(f"Docker image already exists. Skipping build.")
 
     # Step 5: Replace locator
     test_file_path = info['test_file_path']
     absolute_repo_path = os.path.abspath(repo_path)
     if args.reproduce_break:
+        print(f"Replacing locator to reproduce break...")
         replace_locator(info["new_locator"], info["old_locator"], info["line_no"], info["test_file_path"], repo_path)
-        test_result = run_e2e_tests(
-            client,
-            image,
-            command=f"bash /run_tests.sh /app/{test_file_path}",
-            volumes={
-                f'{absolute_repo_path}/{test_file_path}': {'bind': f'/app/{test_file_path}', 'mode': 'ro'}
-            }
-        )
-    else:
-        test_result = run_e2e_tests(
-            client,
-            image,
-            f"bash /run_tests.sh /app/{test_file_path}"
-        )
 
     absolute_test_file_path = f"{absolute_repo_path}/{test_file_path}"
+
+    # Step 6: Run tests
+    test_result = run_e2e_tests(
+        client,
+        image,
+        command=f"bash /run_tests.sh /app/{test_file_path}",
+        volumes={
+            f'{absolute_test_file_path}': {'bind': f'/app/{test_file_path}', 'mode': 'ro'}
+        }
+    )
 
     print(f"Locator information")
     print(f"File path: {os.path.abspath(absolute_test_file_path)}")
