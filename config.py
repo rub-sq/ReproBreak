@@ -10,8 +10,6 @@ SAVE_TO_DB = True
 
 STOP_ON_ERROR = False
 
-PARALLEL_CONTAINERS = 2
-
 REPO_LIST = [
     "quantumlib/cirq",
     "wandb/weave",
