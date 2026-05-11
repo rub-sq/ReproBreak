@@ -1,6 +1,6 @@
 OUTPUT_PATH = "output"
 REPOS_PATH = "repos"
-LB_PATH = "data/locator_break.db"
+LB_PATH = "data/ReproBreak.db"
 REPRODUCTION_PATH = "data/reproduction_files"
 
 START_WITH_CLEAN_DB = True

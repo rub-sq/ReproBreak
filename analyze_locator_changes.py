@@ -15,7 +15,7 @@ import sqlite3
 import re
 import pandas as pd
 
-DB_PATH = "data/locator_break.db"
+DB_PATH = "data/ReproBreak.db"
 
 def strip_assertions(locator_str):
     """

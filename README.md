@@ -32,12 +32,12 @@ cd ReproBreak
 
 Download the pre-built database from the artifact repository:
 
-> **[Download locator_break.db](<DATASET_LINK>)**
+> **[Download ReproBreak.db](https://figshare.com/s/9d1b3910b52d1aa1c2dc)**
 
 Unzip and place it in the `data/` folder:
 
 ```bash
-unzip locator_break.zip -d data/
+unzip ReproBreak.zip -d data/
 ```
 
 ### 3. Install dependencies
@@ -76,7 +76,7 @@ python reproduce.py --locator_id <ID> --mode <MODE>
 ### Example
 
 ```bash
-python reproduce.py --locator_id 42 --mode reproduce_break --db data/locator_break.db
+python reproduce.py --locator_id 42 --mode reproduce_break --db data/ReproBreak.db
 ```
 
 ### Expected Behaviour
@@ -102,7 +102,7 @@ reprobreak/
 ├── database/
 │   └── schema.sql                   # SQLite schema
 └── data/
-    ├── locator_break.db             # Dataset (download separately)
+    ├── ReproBreak.db             # Dataset (download separately)
     └── reproduction_files/          # Per-repository reproduction environments
 ```
 
@@ -128,7 +128,7 @@ Then run:
 python create_dataset.py
 ```
 
-This will clone all repositories iteratively and analyze their commit history to find locator changes. This creates a SQLite database at `output/<TIMESTAMP>/locator_break.db` (if `START_WITH_CLEAN_DB` is `False` at `output/locator_break.db`) containing mined locator changes and their metadata.
+This will clone all repositories iteratively and analyze their commit history to find locator changes. This creates a SQLite database at `output/<TIMESTAMP>/ReproBreak.db` (if `START_WITH_CLEAN_DB` is `False` at `output/ReproBreak.db`) containing mined locator changes and their metadata.
 
 ### Phase 2 — Verify reproducibility
 

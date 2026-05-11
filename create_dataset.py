@@ -25,8 +25,8 @@ initiate_error_overview(result_path)
 db_path = OUTPUT_PATH
 if START_WITH_CLEAN_DB:
     db_path = result_path
-db_path = f'{db_path}/locator_break.db'
-setup_locator_break_db(db_path)
+db_path = f'{db_path}/ReproBreak.db'
+setup_reprobreak_db(db_path)
 
 if not REPO_LIST:
     print("Repo list is empty")

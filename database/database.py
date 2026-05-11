@@ -4,8 +4,8 @@ import os
 
 from config import OUTPUT_PATH
 
-#db_path = Path(__file__).parent.parent / OUTPUT_PATH / "locator_break.db"
-#result_db_path = Path(__file__).parent.parent / "current_results" / "locator_break.db"
+#db_path = Path(__file__).parent.parent / OUTPUT_PATH / "ReproBreak.db"
+#result_db_path = Path(__file__).parent.parent / "current_results" / "ReproBreak.db"
 
 def get_repos(db):
     print('Getting repository_names from DB')
@@ -38,8 +38,8 @@ def get_test_from_db(db, repo_names):
 
     return repos
 
-def setup_locator_break_db(db_path):
-    print('Setting up locator_break_db')
+def setup_reprobreak_db(db_path):
+    print('Setting up ReproBreak db')
     con = sqlite3.connect(db_path)
 
     sql_script = Path(__file__).parent / "schema.sql"
