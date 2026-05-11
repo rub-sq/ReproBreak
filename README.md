@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="images/logo.png" alt="ReproBreak logo" height="460" />
+  <img src="images/logo.png" alt="ReproBreak logo" width="500" />
 </p>
 
 ---
