@@ -88,6 +88,7 @@ def main():
 
 
 def lb_ratio_for_repo(repo_name):
+    repo_name = repo_name.split("/")[-1]
     reproduction_json_path = f"{REPRODUCTION_PATH}/repos/{repo_name}/reproduction.json"
     with open(reproduction_json_path, "r") as f:
         result = json.load(f)

@@ -71,7 +71,7 @@ python reproduce.py --locator_id <ID> --mode <MODE>
 |:---|:---|
 | `reproduce_break` | Reverts the locator to its old value — test is expected to **fail** |
 | `fixed` | Runs with the current locator — test is expected to **pass** |
-| `original` | Runs tests without modifying the locator |
+| `overwrite` | Runs tests without modifying the locator |
 
 ### Example
 
@@ -169,7 +169,7 @@ python analyze_results.py <repo_name> <run_number>
 To get a summary of the results for all runs in a project use the following command instead:
 
 ```bash
-python analyze_results.py <repo_name> <run_number>
+python analyze_results.py <repo_name>
 ```
 
 ### Phase 3 — Save results
@@ -192,3 +192,9 @@ Key settings in `config.py`:
 - `DELETE_REPO_AFTER_ANALYZE`
 
 </details>
+
+---
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
